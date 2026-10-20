@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.env
+settings.json
+*.mp4
+*.wav
+ffmpeg.log
