@@ -20,7 +20,7 @@ from sims import MODE_TITLES, MODES
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("bot")
 
-TOKEN = os.environ["BOT_TOKEN"]
+TOKEN = os.getenv("BOT_TOKEN") or os.getenv("TELEGRAM_BOT_TOKEN") or os.environ["TOKEN"]
 MAX_SECONDS = int(os.getenv("MAX_SECONDS", "180"))   # длиннее не обрабатываем
 WORKERS = int(os.getenv("WORKERS", "1"))              # сколько видео рендерить одновременно
 TG_DOWNLOAD_LIMIT = 20 * 1024 * 1024                  # Bot API не даёт скачать больше 20 МБ
