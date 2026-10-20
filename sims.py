@@ -9,7 +9,7 @@ import colorsys
 import math
 import random
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 TAU = math.pi * 2
 C = 500.0
@@ -161,13 +161,15 @@ class Sim:
     def draw_ball(self, d, k, b, col, trail=None):
         if trail is not None:
             trail.append((b.x, b.y))
-            if len(trail) > 12:
+            if len(trail) > 16:
                 trail.pop(0)
             for i, (x, y) in enumerate(trail):
                 f = i / len(trail)
-                self.circle(d, k, x, y, b.r * f, fill=with_alpha(col, 120 * f))
-        self.circle(d, k, b.x, b.y, b.r * 1.8, fill=with_alpha(col, 50))
+                self.circle(d, k, x, y, b.r * f, fill=with_alpha(col, 150 * f))
+        self.circle(d, k, b.x, b.y, b.r * 2.2, fill=with_alpha(col, 35))
+        self.circle(d, k, b.x, b.y, b.r * 1.5, fill=with_alpha(col, 70))
         self.circle(d, k, b.x, b.y, b.r, fill=col)
+        self.circle(d, k, b.x - b.r * 0.3, b.y - b.r * 0.3, b.r * 0.35, fill=(255, 255, 255, 200))
 
 
 # ---------------------------------------------------------------- режимы
@@ -179,9 +181,9 @@ class Rings(Sim):
     gravity = (0.25, 0.5)
 
     def setup(self):
-        n = self.rng.randint(8, 15)
+        n = self.rng.randint(13, 22)
         inner, outer = self.rnd(70, 110), self.rnd(400, 465)
-        gap = self.rnd(0.7, 1.1)
+        gap = self.rnd(0.45, 0.8)
         self.rings = []
         for i in range(n):
             t = i / (n - 1)
@@ -190,17 +192,20 @@ class Rings(Sim):
                 start=self.rnd(0, TAU), gap=gap,
                 spd=self.rng.choice((-1, 1)) * self.rnd(0.006, 0.03) * (1 + t if self.rng.random() < 0.3 else 1),
                 col=self.grad(t), alive=True))
-        self.b = Ball(C, C, self.rnd(-8, 8), self.rnd(-11, -5), self.rnd(10, 16))
+        self.b = Ball(C, C, self.rnd(-8, 8), self.rnd(-11, -5), self.rnd(13, 18))
         self.g = self.rnd(*self.gravity)
         self.mult = self.rnd(1.0, 1.03)
         self.max_v = self.rnd(16, 24)
-        self.wear = self.rnd(0.06, 0.12)
+        self.wear = self.rnd(0.025, 0.05)
         self.trail = []
 
     def step(self):
         b = self.b
         b.move(self.g, self.max_v)
         ring = next((r for r in self.rings if r["alive"]), None)
+        if ring and self.t > 35 and int(self.t * 60) % 8 == 0:
+            self.break_ring(ring)  # финальный каскад: кольца лопаются одно за другим
+            ring = next((r for r in self.rings if r["alive"]), None)
         if ring:
             dx, dy = b.x - C, b.y - C
             d = math.hypot(dx, dy)
@@ -212,7 +217,7 @@ class Rings(Sim):
                 else:
                     if self.bounce_circle(b, ring["r"] - ring["w"] / 2, 1.5, self.mult):
                         self.sound(self.next_note(220))
-                        ring["gap"] = min(ring["gap"] + self.wear, 2.6)  # кольцо «изнашивается»
+                        ring["gap"] = min(ring["gap"] + self.wear * (1 + self.t / 7), 2.6)  # кольцо «изнашивается»
                         v = math.hypot(b.vx, b.vy)
                         if v < self.max_v * 0.8:  # не даём шарику «укатиться» и заглохнуть
                             b.vx *= self.max_v * 0.8 / v
@@ -247,20 +252,20 @@ class Spiral(Rings):
     title = "Спиральный лабиринт"
 
     def setup(self):
-        n = self.rng.randint(18, 28)
+        n = self.rng.randint(24, 36)
         step = self.rnd(0.15, 0.4)
-        gap = self.rnd(0.8, 1.1)
+        gap = self.rnd(0.55, 0.85)
         sign = self.rng.choice((-1, 1))
         self.rings = []
         for i in range(n):
             t = i / n
             self.rings.append(dict(r=60 + t * 400, w=6, start=i * step, gap=gap,
                                    spd=sign * (0.012 + t * 0.004), col=self.grad(t), alive=True))
-        self.b = Ball(C, C, self.rnd(-6, 6), self.rnd(-6, 6), 8)
+        self.b = Ball(C, C, self.rnd(-6, 6), self.rnd(-6, 6), 11)
         self.g = 0.0
         self.mult = 1.02
         self.max_v = self.rnd(16, 22)
-        self.wear = self.rnd(0.06, 0.12)
+        self.wear = self.rnd(0.025, 0.05)
         self.trail = []
 
 
@@ -427,6 +432,7 @@ class Duel(Sim):
                    anchor="lm" if i == 0 else "rm")
             if b.dead:
                 continue
+            self.draw_ball(d, k, b, b.col)
             if i == self.spike:
                 for j in range(10):
                     a = j / 10 * TAU + self.t * 3
@@ -434,7 +440,6 @@ class Duel(Sim):
                            (b.x + math.cos(a) * (b.r + 45), b.y + math.sin(a) * (b.r + 45)),
                            (b.x + math.cos(a + 0.15) * b.r, b.y + math.sin(a + 0.15) * b.r)]
                     d.polygon([(x * k, y * k) for x, y in pts], fill=(255, 255, 255, 255))
-            self.draw_ball(d, k, b, b.col)
 
 
 class Trail(Sim):
@@ -506,10 +511,17 @@ class Player:
                 self.cur = self._new()
 
     def frame(self, size) -> Image.Image:
+        # рисуем в 2x и уменьшаем — сглаженные края; размытая копия даёт неоновое свечение
+        ss = 2
+        big = Image.new("RGBA", (size * ss, size * ss), (0, 0, 0, 0))
+        self.cur.render(ImageDraw.Draw(big, "RGBA"), size * ss / 1000)
+        sharp = big.resize((size, size), Image.LANCZOS)
+        glow = sharp.filter(ImageFilter.GaussianBlur(size * 0.012))
         img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-        d = ImageDraw.Draw(img, "RGBA")
-        k = size / 1000
         if self.backdrop:
-            d.ellipse([10 * k, 10 * k, 990 * k, 990 * k], fill=(0, 0, 0, 170))
-        self.cur.render(d, k)
+            k = size / 1000
+            ImageDraw.Draw(img).ellipse([8 * k, 8 * k, 992 * k, 992 * k], fill=(0, 0, 0, 225))
+        img.alpha_composite(glow)
+        img.alpha_composite(glow)
+        img.alpha_composite(sharp)
         return img
