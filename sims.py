@@ -159,13 +159,6 @@ class Sim:
                   width=max(1, int(width * k)))
 
     def draw_ball(self, d, k, b, col, trail=None):
-        if trail is not None:
-            trail.append((b.x, b.y))
-            if len(trail) > 16:
-                trail.pop(0)
-            for i, (x, y) in enumerate(trail):
-                f = i / len(trail)
-                self.circle(d, k, x, y, b.r * f, fill=with_alpha(col, 150 * f))
         self.circle(d, k, b.x, b.y, b.r * 2.2, fill=with_alpha(col, 35))
         self.circle(d, k, b.x, b.y, b.r * 1.5, fill=with_alpha(col, 70))
         self.circle(d, k, b.x, b.y, b.r, fill=col)
